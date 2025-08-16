@@ -1,0 +1,30 @@
+*{box-sizing:border-box}html,body{margin:0;padding:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif}
+body{background:#0f1220;color:#e7eaf6}
+header{padding:16px 20px;border-bottom:1px solid #2a2f45;background:#12162a;position:sticky;top:0;z-index:10}
+h1{margin:0;font-size:20px}
+.session-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;align-items:center}
+label{font-size:14px;color:#a9b1d6}
+input,select,button{font-size:14px;border-radius:8px;border:1px solid #2a2f45;background:#161a31;color:#e7eaf6;padding:10px}
+button{cursor:pointer;border:1px solid #39406a}
+button.primary{background:#2e47ee;border-color:#2e47ee}
+button.secondary{background:#1a1f3b}
+button.danger{background:#7a1f2a;border-color:#a33445}
+button:hover{opacity:.95}
+main{max-width:980px;margin:20px auto;padding:0 16px}
+.card{background:#12162a;border:1px solid #2a2f45;border-radius:14px;padding:16px;margin-bottom:16px}
+.row{display:flex;gap:12px;align-items:center;margin:10px 0}
+.row label{min-width:210px}
+.row input, .row select{flex:1}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+table{width:100%;border-collapse:collapse;margin-top:8px}
+th,td{border-bottom:1px solid #2a2f45;padding:10px;text-align:left}
+th{color:#c6ceff;font-weight:600}
+td:last-child{width:60px}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;background:#1a1f3b;border:1px solid #2a2f45}
+footer{padding:20px;text-align:center;color:#8f96bd}
+.history-actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.history-item{border:1px solid #2a2f45;border-radius:10px;padding:12px;margin:8px 0;background:#0f1327}
+.history-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.history-table{width:100%;border-collapse:collapse}
+.history-table th,.history-table td{border-bottom:1px solid #2a2f45;padding:8px}
+.small{font-size:12px;color:#a9b1d6}

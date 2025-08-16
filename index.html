@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gym Tracker — Simple</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <header>
+    <h1>Gym Tracker</h1>
+    <div class="session-meta">
+      <label for="sessionDate">Fecha y hora:</label>
+      <input id="sessionDate" type="datetime-local" />
+      <button id="btnNow" title="Tomar fecha y hora actuales">Tomar fecha de hoy</button>
+      <button id="btnNewSession" class="secondary">Nueva sesión</button>
+      <button id="btnSaveSession" class="primary">Guardar sesión</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Agregar ejercicio</h2>
+      <div class="row">
+        <label for="exName">Nombre</label>
+        <input id="exName" type="text" placeholder="Ej: Máquina para correr, Press banca" />
+      </div>
+
+      <div class="row">
+        <label for="exType">Tipo</label>
+        <select id="exType">
+          <option value="reps">Repeticiones</option>
+          <option value="time">Tiempo/Distancia</option>
+        </select>
+      </div>
+
+      <div class="row" id="rowReps">
+        <label for="exReps">Reps (separadas por coma)</label>
+        <input id="exReps" type="text" placeholder="15, 14, 12" />
+      </div>
+
+      <div class="row" id="rowTime" style="display:none;">
+        <label for="exTime">Detalle tiempo/distancia</label>
+        <input id="exTime" type="text" placeholder="10 min, 1 km" />
+      </div>
+
+      <div class="actions">
+        <button id="btnAdd" class="primary">Agregar a la sesión</button>
+        <button id="btnClear" class="secondary">Limpiar campos</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Sesión actual</h2>
+      <table id="sessionTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Ejercicio</th>
+            <th>Tipo</th>
+            <th>Detalle</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="actions">
+        <button id="btnExportCurrent" class="secondary">Exportar sesión (CSV)</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Historial</h2>
+      <div class="history-actions">
+        <button id="btnExportAll" class="secondary">Exportar historial (CSV)</button>
+        <button id="btnClearHistory" class="danger">Borrar historial</button>
+      </div>
+      <div id="history"></div>
+    </section>
+  </main>
+
+  <footer>
+    <small>Inspirado en tu Album Ranking — versión simple para gym.</small>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
