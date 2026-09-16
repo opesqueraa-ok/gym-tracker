@@ -212,6 +212,77 @@
   .sheet-sub{ font-size:0.78rem; color:var(--ink-dim); margin: 0 0 16px; }
   .close-x{ background:none; font-size:1.4rem; color:var(--ink-dim); line-height:1; padding:4px 8px;}
 
+  .gif-box{
+    width:100%;
+    border-radius:var(--radius);
+    overflow:hidden;
+    background:var(--bg-card);
+    border:1px solid var(--line);
+    margin-bottom:14px;
+    position:relative;
+  }
+  .gif-box img{
+    width:100%;
+    display:block;
+    max-height:260px;
+    object-fit:cover;
+  }
+  .gif-box .gif-edit{
+    position:absolute;
+    top:8px; right:8px;
+    background:rgba(0,0,0,0.55);
+    color:#fff;
+    border:none;
+    border-radius:999px;
+    padding:5px 11px;
+    font-size:0.7rem;
+    font-weight:700;
+  }
+  .gif-empty{
+    width:100%;
+    padding:26px 12px;
+    text-align:center;
+    color:var(--ink-dim);
+    background:var(--bg-card);
+    border:1px dashed var(--line);
+    border-radius:var(--radius);
+    margin-bottom:14px;
+    font-size:0.82rem;
+  }
+  .gif-empty b{
+    display:block;
+    color:var(--accent);
+    font-size:0.85rem;
+    margin-top:2px;
+  }
+  .swap-opt-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    text-align:left;
+    background:var(--bg-card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:8px 10px;
+    width:100%;
+  }
+  .swap-opt-row img{
+    width:44px; height:44px;
+    object-fit:cover;
+    border-radius:8px;
+    flex-shrink:0;
+    background:var(--bg);
+  }
+  .swap-opt-row .swap-thumb-empty{
+    width:44px; height:44px;
+    border-radius:8px;
+    background:var(--bg);
+    border:1px dashed var(--line);
+    flex-shrink:0;
+  }
+  .swap-opt-row .swap-txt{ flex:1; min-width:0; }
+  .swap-opt-row .swap-txt small{ display:block; color:var(--ink-dim); font-size:0.72rem; margin-top:2px;}
+
   .prev-note{
     background:var(--bg-card);
     border:1px solid var(--line);
@@ -438,7 +509,7 @@ const ROUTINE = {
     {id:"tA2", name:"Press de Banca con Barra", type:"fuerza", target:"3×10–12", group:"pecho"},
     {id:"tA3", name:"Remo Sentado en Polea", type:"fuerza", target:"3×12", group:"espalda"},
     {id:"tA4", name:"Press Militar Sentado con Mancuernas", type:"fuerza", target:"3×10", group:"hombro"},
-    {id:"tA5", name:"Jalón al Pecho en Polea", type:"fuerza", target:"3×12", group:"espalda"},
+    {id:"tA5", name:"Jalón al Pecho en Polea", type:"fuerza", target:"3×12", group:"espalda", gif:"https://api.smartworkout.app/asset/image/1f17e813-cb8e-474a-8df4-ea4fd8215afe"},
     {id:"tA6", name:"Cardio final — caminadora", type:"tiempo", target:"10 min", group:"cardio"},
   ]},
   piernaA: { label:"Pierna A", sub:"Sin agacharse con barra", exercises:[
@@ -471,6 +542,7 @@ const DAY_ORDER = ["torsoA","piernaA","torsoB","piernaB"];
 const LS_HISTORY = "gt_history_v1";
 const LS_LAST = "gt_last_v1";       // última marca por ejercicio (para referencia)
 const LS_STATE = "gt_session_v1";   // sesión en curso (para no perder si cierras el navegador)
+const LS_GIFS = "gt_gifs_v1";       // key (id de ejercicio o nombre libre) -> url de gif/imagen
 
 function loadJSON(key, fallback){
   try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
@@ -483,6 +555,25 @@ function saveJSON(key, val){
 let history = loadJSON(LS_HISTORY, []);       // [{id, dayKey, dayLabel, startedAt, endedAt, entries:{exId:{...}}}]
 let lastByExercise = loadJSON(LS_LAST, {});   // exId -> último registro
 let session = loadJSON(LS_STATE, null);       // sesión activa o null
+let gifs = loadJSON(LS_GIFS, {});             // seedGifs se aplica más abajo, sin pisar lo ya guardado por el usuario
+
+// Sembrar los gifs definidos en ROUTINE la primera vez (sin pisar los que el usuario ya haya guardado o borrado)
+(function seedGifs(){
+  let changed = false;
+  DAY_ORDER.forEach(k=>{
+    ROUTINE[k].exercises.forEach(e=>{
+      if(e.gif && !(e.id in gifs)){ gifs[e.id] = e.gif; changed = true; }
+    });
+  });
+  if(changed) saveJSON(LS_GIFS, gifs);
+})();
+
+function gifKeyFor(exId){
+  // si el ejercicio fue cambiado por uno personalizado, el gif se guarda bajo ese nombre
+  const entry = session && session.entries ? session.entries[exId] : null;
+  if(entry && entry.swappedTo) return "custom:"+entry.swappedTo;
+  return exId;
+}
 
 let currentDayKey = (session && session.dayKey) || DAY_ORDER[0];
 let timerInterval = null;
@@ -692,9 +783,28 @@ function closeSheet(){
 }
 overlay.onclick = closeSheet;
 
+function gifBoxHtml(exId, displayName){
+  const gKey = gifKeyFor(exId);
+  const url = gifs[gKey];
+  if(url){
+    return `<div class="gif-box"><img src="${url}" alt="Cómo hacer ${displayName}" onerror="this.parentElement.innerHTML='<div class=&quot;gif-empty&quot;>El link del GIF no cargó<b>Toca para cambiarlo</b></div>'; this.parentElement.onclick=()=>editGif('${gKey}');" /><button class="gif-edit" onclick="editGif('${gKey}')">Cambiar</button></div>`;
+  }
+  return `<div class="gif-empty" onclick="editGif('${gKey}')">Sin GIF guardado<b>+ Agregar GIF</b></div>`;
+}
+function editGif(gKey){
+  const current = gifs[gKey] || "";
+  const url = prompt("Pega el link de la imagen o GIF de este ejercicio (déjalo vacío para quitarlo):", current);
+  if(url===null) return; // canceló
+  if(url.trim()===""){ delete gifs[gKey]; } else { gifs[gKey] = url.trim(); }
+  saveJSON(LS_GIFS, gifs);
+  if(activeExId) renderSheet();
+}
+
 function renderSheet(){
   const ex = exById(activeExId);
   const last = lastByExercise[activeExId];
+  const entry = session.entries[activeExId];
+  const displayName = (entry && entry.swappedTo) ? entry.swappedTo : ex.name;
   let lastNoteHtml = "";
   if(ex.type==="fuerza" && last && last.sets && last.sets.length){
     const parts = last.sets.map(s=> s.weight+s.unit+"×"+s.reps).join(", ");
@@ -745,11 +855,12 @@ function renderSheet(){
   sheetEl.innerHTML = `
     <div class="sheet-head">
       <div>
-        <h2>${ex.name}</h2>
+        <h2>${displayName}</h2>
         <p class="sheet-sub">${ex.target}</p>
       </div>
       <button class="close-x" id="btnClose">✕</button>
     </div>
+    ${gifBoxHtml(activeExId, displayName)}
     ${lastNoteHtml}
     ${bodyHtml}
     <div class="sheet-actions" style="margin-bottom:10px;">
@@ -839,9 +950,13 @@ function openSwapPicker(){
       <h2>Cambiar ejercicio</h2>
       <button class="close-x" id="btnClose">✕</button>
     </div>
-    <p class="sheet-sub">En vez de ${ex.name}</p>
+    <p class="sheet-sub">En vez de ${ex.name} · grupo: ${ex.group}</p>
     <div class="swap-list" id="swapList">
-      ${uniq.map(a=>`<button class="swap-opt" data-name="${a.name}">${a.name}<small>${a.target}</small></button>`).join("")}
+      ${uniq.map(a=>{
+        const url = gifs[a.id];
+        const thumb = url ? `<img src="${url}" onerror="this.style.display='none'">` : `<div class="swap-thumb-empty"></div>`;
+        return `<button class="swap-opt-row" data-name="${a.name}" data-id="${a.id}">${thumb}<span class="swap-txt">${a.name}<small>${a.target}</small></span></button>`;
+      }).join("")}
     </div>
     <input class="custom-ex-input" id="customExInput" placeholder="O escribe otro ejercicio…" />
     <div class="sheet-actions" style="margin-top:14px;">
@@ -851,19 +966,25 @@ function openSwapPicker(){
   `;
   document.getElementById("btnClose").onclick = closeSheet;
   document.getElementById("btnCancelSwap").onclick = ()=> renderSheet();
-  document.querySelectorAll(".swap-opt").forEach(btn=>{
-    btn.onclick = ()=> applySwap(btn.dataset.name);
+  document.querySelectorAll(".swap-opt-row").forEach(btn=>{
+    btn.onclick = ()=> applySwap(btn.dataset.name, btn.dataset.id);
   });
   document.getElementById("btnConfirmCustom").onclick = ()=>{
     const v = document.getElementById("customExInput").value.trim();
-    if(v) applySwap(v); else renderSheet();
+    if(v) applySwap(v, null); else renderSheet();
   };
 }
-function applySwap(name){
+function applySwap(name, sourceExId){
   const prevEntry = session.entries[activeExId] || {};
   prevEntry.swappedTo = name;
   session.entries[activeExId] = prevEntry;
   saveJSON(LS_STATE, session);
+  // si la alternativa elegida ya tenía un gif guardado (por ser ejercicio conocido de la rutina),
+  // lo copiamos a la clave del nombre personalizado para que se vea de una vez
+  if(sourceExId && gifs[sourceExId] && !gifs["custom:"+name]){
+    gifs["custom:"+name] = gifs[sourceExId];
+    saveJSON(LS_GIFS, gifs);
+  }
   renderSheet();
   toast("Cambiado a: "+name);
 }
