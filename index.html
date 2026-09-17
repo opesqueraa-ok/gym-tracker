@@ -211,6 +211,13 @@
   .sheet-head h2{ margin:0; font-size:1.15rem; }
   .sheet-sub{ font-size:0.78rem; color:var(--ink-dim); margin: 0 0 16px; }
   .close-x{ background:none; font-size:1.4rem; color:var(--ink-dim); line-height:1; padding:4px 8px;}
+  .name-edit{
+    background:none;
+    color:var(--ink-dim);
+    font-size:0.8rem;
+    padding:2px 4px;
+    vertical-align:middle;
+  }
 
   .gif-box{
     width:100%;
@@ -442,9 +449,9 @@
   }
 
   .footer-actions{
-    display:flex; gap:10px; margin-top:6px;
+    display:flex; gap:10px; margin-top:6px; flex-wrap:wrap;
   }
-  .footer-actions .btn{ flex:1; font-size:0.78rem; padding:9px 10px;}
+  .footer-actions .btn{ flex:1 1 30%; font-size:0.76rem; padding:9px 8px;}
 
   .toast{
     position:fixed;
@@ -491,7 +498,8 @@
     <h3>Historial</h3>
     <div id="history"></div>
     <div class="footer-actions">
-      <button class="btn ghost" id="btnExport">Exportar CSV</button>
+      <button class="btn ghost" id="btnExportLast">Copiar última sesión</button>
+      <button class="btn ghost" id="btnExportAll">Copiar historial</button>
       <button class="btn danger" id="btnWipe">Borrar historial</button>
     </div>
   </section>
@@ -507,9 +515,9 @@ const ROUTINE = {
   torsoA: { label:"Torso A", sub:"Pecho, espalda, hombro", exercises:[
     {id:"tA1", name:"Caminadora inclinada", type:"tiempo", target:"5 min", group:"cardio"},
     {id:"tA2", name:"Press de Banca con Barra", type:"fuerza", target:"3×10–12", group:"pecho"},
-    {id:"tA3", name:"Remo Sentado en Polea", type:"fuerza", target:"3×12", group:"espalda"},
-    {id:"tA4", name:"Press Militar Sentado con Mancuernas", type:"fuerza", target:"3×10", group:"hombro"},
-    {id:"tA5", name:"Jalón al Pecho en Polea", type:"fuerza", target:"3×12", group:"espalda", gif:"https://api.smartworkout.app/asset/image/1f17e813-cb8e-474a-8df4-ea4fd8215afe"},
+    {id:"tA3", name:"Seated Row (FreeMotion)", type:"fuerza", target:"3×12", group:"espalda"},
+    {id:"tA4", name:"Shoulder Press (FreeMotion)", type:"fuerza", target:"3×10", group:"hombro"},
+    {id:"tA5", name:"Lat Pulldown / High Row", type:"fuerza", target:"3×12", group:"espalda", gif:"https://api.smartworkout.app/asset/image/1f17e813-cb8e-474a-8df4-ea4fd8215afe"},
     {id:"tA6", name:"Cardio final — caminadora", type:"tiempo", target:"10 min", group:"cardio"},
   ]},
   piernaA: { label:"Pierna A", sub:"Sin agacharse con barra", exercises:[
@@ -543,6 +551,7 @@ const LS_HISTORY = "gt_history_v1";
 const LS_LAST = "gt_last_v1";       // última marca por ejercicio (para referencia)
 const LS_STATE = "gt_session_v1";   // sesión en curso (para no perder si cierras el navegador)
 const LS_GIFS = "gt_gifs_v1";       // key (id de ejercicio o nombre libre) -> url de gif/imagen
+const LS_NAMES = "gt_names_v1";     // exId -> nombre personalizado permanente (para renombrar según tu gimnasio)
 
 function loadJSON(key, fallback){
   try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
@@ -556,6 +565,7 @@ let history = loadJSON(LS_HISTORY, []);       // [{id, dayKey, dayLabel, started
 let lastByExercise = loadJSON(LS_LAST, {});   // exId -> último registro
 let session = loadJSON(LS_STATE, null);       // sesión activa o null
 let gifs = loadJSON(LS_GIFS, {});             // seedGifs se aplica más abajo, sin pisar lo ya guardado por el usuario
+let names = loadJSON(LS_NAMES, {});           // exId -> nombre personalizado permanente
 
 // Sembrar los gifs definidos en ROUTINE la primera vez (sin pisar los que el usuario ya haya guardado o borrado)
 (function seedGifs(){
@@ -573,6 +583,21 @@ function gifKeyFor(exId){
   const entry = session && session.entries ? session.entries[exId] : null;
   if(entry && entry.swappedTo) return "custom:"+entry.swappedTo;
   return exId;
+}
+function baseName(exId){
+  const ex = exById(exId);
+  return names[exId] || (ex ? ex.name : exId);
+}
+function editName(exId){
+  const ex = exById(exId);
+  const current = names[exId] || (ex ? ex.name : "");
+  const val = prompt("Nombre del ejercicio en tu gimnasio (déjalo vacío para volver al nombre original):", current);
+  if(val===null) return; // canceló
+  const trimmed = val.trim();
+  if(trimmed==="" || (ex && trimmed===ex.name)){ delete names[exId]; } else { names[exId] = trimmed; }
+  saveJSON(LS_NAMES, names);
+  renderExList();
+  if(activeExId) renderSheet();
 }
 
 let currentDayKey = (session && session.dayKey) || DAY_ORDER[0];
@@ -708,7 +733,7 @@ function renderExList(){
     const card = document.createElement("div");
     let statusHtml = `<span class="ex-status pend">Pendiente</span>`;
     let cardClass = "ex-card";
-    let displayName = ex.name;
+    let displayName = baseName(ex.id);
     if(entry){
       if(entry.skipped){
         statusHtml = `<span class="ex-status skip">Omitido</span>`;
@@ -718,7 +743,7 @@ function renderExList(){
         statusHtml = `<span class="ex-status done">${n>0? n+" serie"+(n===1?"":"s") : "Hecho"}</span>`;
         cardClass += " done";
       }
-      if(entry.swappedTo) displayName = entry.swappedTo + " (en vez de "+ex.name+")";
+      if(entry.swappedTo) displayName = entry.swappedTo + " (en vez de "+baseName(ex.id)+")";
     }
     card.className = cardClass;
     const last = lastByExercise[ex.id];
@@ -747,21 +772,11 @@ function renderExList(){
 const overlay = document.getElementById("overlay");
 const sheetEl = document.getElementById("sheet");
 
-function ensureSession(){
-  if(!session || session.dayKey !== currentDayKey){
-    if(!confirm("Aún no has iniciado la sesión de hoy. ¿Iniciarla ahora?")) return false;
-    session = { dayKey: currentDayKey, startedAt: Date.now(), entries:{} };
-    saveJSON(LS_STATE, session);
-    renderSessionBar();
-  }
-  return true;
-}
-
 function openExerciseSheet(exId){
-  if(!ensureSession()) return;
   activeExId = exId;
   const ex = exById(exId);
-  const entry = session.entries[exId];
+  const inSession = session && session.dayKey === currentDayKey;
+  const entry = inSession ? session.entries[exId] : null;
   tempSets = (entry && entry.sets) ? [...entry.sets] : [];
   tempTimeMin = (entry && entry.timeMin) ? entry.timeMin : (parseInt(ex.target) || 10);
   const last = lastByExercise[exId];
@@ -802,9 +817,40 @@ function editGif(gKey){
 
 function renderSheet(){
   const ex = exById(activeExId);
+  const inSession = session && session.dayKey === currentDayKey;
+  const entry = inSession ? session.entries[activeExId] : null;
+  const displayName = (entry && entry.swappedTo) ? entry.swappedTo : baseName(activeExId);
   const last = lastByExercise[activeExId];
-  const entry = session.entries[activeExId];
-  const displayName = (entry && entry.swappedTo) ? entry.swappedTo : ex.name;
+
+  const headerHtml = `
+    <div class="sheet-head">
+      <div>
+        <h2>${displayName} <button class="name-edit" id="btnEditName" title="Editar nombre">✎</button></h2>
+        <p class="sheet-sub">${ex.target}</p>
+      </div>
+      <button class="close-x" id="btnClose">✕</button>
+    </div>
+    ${gifBoxHtml(activeExId, displayName)}
+  `;
+
+  if(!inSession){
+    sheetEl.innerHTML = headerHtml + `
+      <div class="prev-note">Aún no inicias la sesión de ${ROUTINE[currentDayKey].label} hoy. Puedes revisar o ajustar el nombre y el GIF de una vez.</div>
+      <div class="sheet-actions">
+        <button class="btn primary" id="btnStartFromSheet">Iniciar sesión y registrar</button>
+      </div>
+    `;
+    document.getElementById("btnClose").onclick = closeSheet;
+    document.getElementById("btnEditName").onclick = ()=> editName(activeExId);
+    document.getElementById("btnStartFromSheet").onclick = ()=>{
+      session = { dayKey: currentDayKey, startedAt: Date.now(), entries:{} };
+      saveJSON(LS_STATE, session);
+      renderSessionBar();
+      openExerciseSheet(activeExId);
+    };
+    return;
+  }
+
   let lastNoteHtml = "";
   if(ex.type==="fuerza" && last && last.sets && last.sets.length){
     const parts = last.sets.map(s=> s.weight+s.unit+"×"+s.reps).join(", ");
@@ -852,15 +898,7 @@ function renderSheet(){
     `;
   }
 
-  sheetEl.innerHTML = `
-    <div class="sheet-head">
-      <div>
-        <h2>${displayName}</h2>
-        <p class="sheet-sub">${ex.target}</p>
-      </div>
-      <button class="close-x" id="btnClose">✕</button>
-    </div>
-    ${gifBoxHtml(activeExId, displayName)}
+  sheetEl.innerHTML = headerHtml + `
     ${lastNoteHtml}
     ${bodyHtml}
     <div class="sheet-actions" style="margin-bottom:10px;">
@@ -873,6 +911,7 @@ function renderSheet(){
   `;
 
   document.getElementById("btnClose").onclick = closeSheet;
+  document.getElementById("btnEditName").onclick = ()=> editName(activeExId);
   document.getElementById("btnSwap").onclick = openSwapPicker;
   document.getElementById("btnSkip").onclick = ()=>{
     session.entries[activeExId] = { type: ex.type, skipped:true };
@@ -950,12 +989,13 @@ function openSwapPicker(){
       <h2>Cambiar ejercicio</h2>
       <button class="close-x" id="btnClose">✕</button>
     </div>
-    <p class="sheet-sub">En vez de ${ex.name} · grupo: ${ex.group}</p>
+    <p class="sheet-sub">En vez de ${baseName(ex.id)} · grupo: ${ex.group}</p>
     <div class="swap-list" id="swapList">
       ${uniq.map(a=>{
         const url = gifs[a.id];
+        const dispName = baseName(a.id);
         const thumb = url ? `<img src="${url}" onerror="this.style.display='none'">` : `<div class="swap-thumb-empty"></div>`;
-        return `<button class="swap-opt-row" data-name="${a.name}" data-id="${a.id}">${thumb}<span class="swap-txt">${a.name}<small>${a.target}</small></span></button>`;
+        return `<button class="swap-opt-row" data-name="${dispName}" data-id="${a.id}">${thumb}<span class="swap-txt">${dispName}<small>${a.target}</small></span></button>`;
       }).join("")}
     </div>
     <input class="custom-ex-input" id="customExInput" placeholder="O escribe otro ejercicio…" />
@@ -1005,7 +1045,7 @@ function renderHistory(){
     const rows = Object.keys(rec.entries).map(exId=>{
       const e = rec.entries[exId];
       const ex = exById(exId);
-      const name = e.swappedTo ? e.swappedTo+" (en vez de "+(ex?ex.name:exId)+")" : (ex?ex.name:exId);
+      const name = e.swappedTo ? e.swappedTo+" (en vez de "+(ex?baseName(exId):exId)+")" : (ex?baseName(exId):exId);
       if(e.skipped) return `<div>${name} — omitido</div>`;
       if(e.type==="fuerza"){
         const s = (e.sets||[]).map(s=>s.weight+s.unit+"×"+s.reps).join(", ");
@@ -1036,32 +1076,41 @@ document.getElementById("btnWipe").onclick = ()=>{
   }
 };
 
-document.getElementById("btnExport").onclick = ()=>{
-  if(history.length===0){ toast("No hay historial que exportar"); return; }
-  let csv = "fecha,dia,ejercicio,tipo,detalle\n";
-  history.forEach(rec=>{
-    const dateStr = new Date(rec.startedAt).toISOString().slice(0,16).replace("T"," ");
-    Object.keys(rec.entries).forEach(exId=>{
-      const e = rec.entries[exId];
-      const ex = exById(exId);
-      const name = (e.swappedTo || (ex?ex.name:exId)).replace(/,/g,";");
-      if(e.skipped){
-        csv += `${dateStr},${rec.dayLabel},${name},omitido,\n`;
-      } else if(e.type==="fuerza"){
-        (e.sets||[]).forEach((s,i)=>{
-          csv += `${dateStr},${rec.dayLabel},${name},serie ${i+1},${s.weight}${s.unit}x${s.reps}\n`;
-        });
-      } else {
-        csv += `${dateStr},${rec.dayLabel},${name},tiempo,${e.timeMin||0} min\n`;
-      }
-    });
+function buildSessionText(rec){
+  const dateStr = new Date(rec.startedAt).toLocaleString("es-GT",{weekday:'long', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+  const durMin = Math.round((rec.endedAt-rec.startedAt)/60000);
+  const lines = [`${rec.dayLabel} — ${dateStr} (${durMin} min)`];
+  Object.keys(rec.entries).forEach(exId=>{
+    const e = rec.entries[exId];
+    const name = e.swappedTo || baseName(exId);
+    if(e.skipped){ lines.push(`- ${name}: omitido`); return; }
+    if(e.type==="fuerza"){
+      const s = (e.sets||[]).map(s=>`${s.weight}${s.unit}x${s.reps}`).join(", ");
+      lines.push(`- ${name}: ${s || "sin series"}`);
+    } else {
+      lines.push(`- ${name}: ${e.timeMin||0} min`);
+    }
   });
-  const blob = new Blob([csv], {type:"text/csv"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = "gym-tracker-historial.csv";
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
+  return lines.join("\n");
+}
+function buildAllHistoryText(){
+  return history.map(buildSessionText).join("\n\n");
+}
+async function copyText(text, label){
+  try{
+    await navigator.clipboard.writeText(text);
+    toast(label+" copiado — pégalo en el chat");
+  }catch(e){
+    prompt("No se pudo copiar automático. Copia este texto manualmente:", text);
+  }
+}
+document.getElementById("btnExportLast").onclick = ()=>{
+  if(history.length===0){ toast("Aún no hay sesiones guardadas"); return; }
+  copyText(buildSessionText(history[0]), "Tu última sesión");
+};
+document.getElementById("btnExportAll").onclick = ()=>{
+  if(history.length===0){ toast("Aún no hay sesiones guardadas"); return; }
+  copyText(buildAllHistoryText(), "Tu historial");
 };
 
 /* ---------- Render maestro ---------- */
